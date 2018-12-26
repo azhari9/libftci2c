@@ -42,18 +42,8 @@ Revision History:
 // This way any other project whose source files include this file see
 // FTCI2C_API functions as being imported from a DLL, whereas this DLL
 // sees symbols defined with this macro as being exported.
-// #ifdef _WIN32
-// #ifdef FTCI2C_EXPORTS
-// #define FTCI2C_API __declspec(dllexport)
-// #else
-// #define FTCI2C_API __declspec(dllimport)
-// #endif
-// #else
-// Compiling on non-Windows platform.
+
 #include "WinTypes.h"
-// No decorations needed.
-//#define FTD2XX_API
-//#endif
 
 typedef DWORD FTC_HANDLE;
 typedef ULONG FTC_STATUS;

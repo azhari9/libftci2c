@@ -27,46 +27,15 @@ Revision History:
 	
 --*/
 #include <stdio.h>
+#include <stdlib.h>
 #include "stdafx.h"
 
-//#include <windows.h>
 #include "WinTypes.h"
+
 #include "FTCI2C.h"
 
-//#include "ft2232hmpssei2c.h"
 #include "FT2232hMpsseI2c.h"
-#include "stdafx.h"
-#include <stdlib.h>
 
-
-#if 0
-static FT2232hMpsseI2c *pFT2232hMpsseI2c = NULL;
-
-
-BOOL APIENTRY DllMain( HANDLE hModule, 
-                       DWORD  ul_reason_for_call, 
-                       LPVOID lpReserved
-					 )
-{
-    switch (ul_reason_for_call)
-  	{
-		case DLL_PROCESS_ATTACH:
-      if (pFT2232hMpsseI2c == NULL)
-        pFT2232hMpsseI2c = new FT2232hMpsseI2c();
-      break;
-		case DLL_THREAD_ATTACH:
-      break;
-		case DLL_THREAD_DETACH:
-      break;
-		case DLL_PROCESS_DETACH:
-			//pFT2232hMpsseI2c->~FT2232hMpsseI2c();
-			delete pFT2232hMpsseI2c;
-		  break;
-    }
-
-    return TRUE;
-}
-#endif
 //---------------------------------------------------------------------------
 
 

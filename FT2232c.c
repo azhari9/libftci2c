@@ -29,7 +29,7 @@ Revision History:
     07/07/08    kra     Modified FTC_IsDeviceFT2232CType method, changed condition to detect FT2232C device type.
     11/07/08    kra     Removed FTC_IsDeviceHandleValid call from FTC_SetDeviceLoopbackState method.
     14/07/08    kra     Added new method ie FTC_GetDeviceLatencyTimer.
-	
+
 --*/
 
 #ifndef _GNU_SOURCE
@@ -49,9 +49,24 @@ Revision History:
 #include <unistd.h>
 //INT iDeviceCntr = 0;
 
+const int MPSSE_INTERFACE_MASK   = '\x00';
+const int RESET_MPSSE_INTERFACE = '\x00';
+const int ENABLE_MPSSE_INTERFACE = '\x02';
+
+const int DEVICE_OPENED_FLAG = '\x0001';
+
+const BYTE AA_ECHO_CMD_1 = '\xAA';
+const BYTE AB_ECHO_CMD_2 = '\xAB';
+
+const BYTE TURN_ON_LOOPBACK_CMD = '\x84';
+const BYTE TURN_OFF_LOOPBACK_CMD = '\x85';
+
+const BYTE BAD_COMMAND_RESPONSE = '\xFA';
+
 DWORD dwNumBytesToSend = 0;
 UINT uiNumOpenedDevices = 0;
 FTC_DEVICE_DATA OpenedDevices[MAX_NUM_DEVICES] = {0};
+OutputByteBuffer OutputBuffer;
 BOOLEAN FTC_DeviceInUse_c(LPSTR lpDeviceName, DWORD dwLocationID)
 {
   BOOLEAN bDeviceInUse = 0;
@@ -192,7 +207,7 @@ FTC_STATUS FTC_IsDeviceFT2232CType(FT_DEVICE_LIST_INFO_NODE devInfo, LPBOOL lpbF
     {
       // Ensure the last two characters of the device name is ' A' ie channel A
       if (strlen(pszStringSearch) == 2)
-      *lpbFT2232CTypeDevice = 1; 
+      *lpbFT2232CTypeDevice = 1;
     }
   }
 
@@ -218,14 +233,8 @@ FTC_STATUS FTC_GetNumDevices(LPDWORD lpdwNumDevices, FT2232CDeviceIndexes *FT223
   {
     if (dwNumOfDevices > 0)
     {
-		//pDevInfoList = FT_DEVICE_LIST_INFO_NODE[dwNumOfDevices]
       // allocate storage for the device list based on dwNumOfDevices
-	pDevInfoList = malloc(dwNumOfDevices * sizeof(FT_DEVICE_LIST_INFO_NODE));
-        //for(i = 0 ; i < dwNumOfDevices ; i++);
-       // {
-         //       pDevInfoList[i] = NULL;
-       // }
-
+      pDevInfoList = malloc(dwNumOfDevices * sizeof(FT_DEVICE_LIST_INFO_NODE));
       if ((pDevInfoList) != NULL )
       {
         Status = FT_GetDeviceInfoList(pDevInfoList, &dwNumOfDevices);
@@ -256,7 +265,6 @@ FTC_STATUS FTC_GetNumDevices(LPDWORD lpdwNumDevices, FT2232CDeviceIndexes *FT223
           while ((dwDeviceIndex < dwNumOfDevices) && (Status == FTC_SUCCESS));
         }
 
-       // delete pDevInfoList;
        free(pDevInfoList);
       }
       else
@@ -275,7 +283,7 @@ FTC_STATUS FTC_GetNumNotOpenedDevices(LPDWORD lpdwNumNotOpenedDevices, FT2232CDe
   FT_DEVICE_LIST_INFO_NODE devInfo;
   DWORD dwDeviceIndex = 0;
   BOOL bFT2232CTypeDevice = 0;
-  int i;
+
   *lpdwNumNotOpenedDevices = 0;
 
   // Get the number of devices connected to the system
@@ -285,11 +293,8 @@ FTC_STATUS FTC_GetNumNotOpenedDevices(LPDWORD lpdwNumNotOpenedDevices, FT2232CDe
   {
     if (dwNumOfDevices > 0)
     {
-		//pDevInfoList = FT_DEVICE_LIST_INFO_NODE[dwNumOfDevices];
-		//memcpy(pDevInfoList,&FT_DEVICE_LIST_INFO_NODE[dwNumOfDevices],sizeof(FT_DEVICE_LIST_INFO_NODE[dwNumOfDevices]));
-	pDevInfoList = malloc(dwNumOfDevices * sizeof(FT_DEVICE_LIST_INFO_NODE));
-
       // allocate storage for the device list based on dwNumOfDevices
+      pDevInfoList = malloc(dwNumOfDevices * sizeof(FT_DEVICE_LIST_INFO_NODE));
       if (pDevInfoList != NULL )
       {
         Status = FT_GetDeviceInfoList(pDevInfoList, &dwNumOfDevices);
@@ -317,7 +322,6 @@ FTC_STATUS FTC_GetNumNotOpenedDevices(LPDWORD lpdwNumNotOpenedDevices, FT2232CDe
           while ((dwDeviceIndex < dwNumOfDevices) && (Status == FTC_SUCCESS));
         }
 
-        //delete pDevInfoList;
 	free(pDevInfoList);
       }
       else
@@ -393,7 +397,7 @@ FTC_STATUS FTC_OpenSpecifiedDevice(LPSTR lpDeviceName, DWORD dwLocationID, FTC_H
 
           if (Status == FTC_SUCCESS)
           {
-            *pftHandle = *((FTC_HANDLE*)ftHandle);
+            *pftHandle = (DWORD)ftHandle;
 
             FTC_InsertDeviceHandle_c(lpDeviceName, dwLocationID, *pftHandle);
           }
@@ -595,10 +599,10 @@ FTC_STATUS FTC_SetDeviceUSBBufferSizes(FTC_HANDLE ftHandle, DWORD InputBufferSiz
 FTC_STATUS FTC_SetDeviceSpecialCharacters(FTC_HANDLE ftHandle, BOOLEAN bEventEnabled, UCHAR EventCharacter,
                                                    BOOLEAN bErrorEnabled, UCHAR ErrorCharacter)
 {
- 	//UCHAR EventCharEnabled = UCHAR(bEventEnabled);
-	//UCHAR ErrorCharEnabled = UCHAR(bErrorEnabled);
-	UCHAR EventCharEnabled = bEventEnabled;
-	UCHAR ErrorCharEnabled = bErrorEnabled;
+// 	UCHAR EventCharEnabled = UCHAR(bEventEnabled);
+//	UCHAR ErrorCharEnabled = UCHAR(bErrorEnabled);
+	UCHAR EventCharEnabled = (UCHAR)bEventEnabled;
+	UCHAR ErrorCharEnabled = (UCHAR)bErrorEnabled;
 
   // Set the special characters for the device. disable event and error characters
   return FT_SetChars((FT_HANDLE)ftHandle, EventCharacter, EventCharEnabled, ErrorCharacter, ErrorCharEnabled);
@@ -650,7 +654,6 @@ FTC_STATUS FTC_SendReceiveCommandFromMPSSEInterface(FTC_HANDLE ftHandle, BOOLEAN
     FTC_SendBytesToDevice(ftHandle);
   }
 
-  //GetLocalTime(&StartTime);
   gettimeofday(&StartTime,NULL);
 
   do
@@ -766,7 +769,7 @@ BOOLEAN FTC_Timeout(SYSTEMTIME StartSystemTime, DWORD dwTimeoutmSecs)
   gStartTime = (StartSystemTime.tv_sec % SECONDS_PER_DAY) * 1000 +  StartSystemTime.tv_usec / 1000;
   gEndTime =  (EndSystemTime.tv_sec % SECONDS_PER_DAY) * 1000 +  EndSystemTime.tv_usec / 1000;
 
-  long int timer_spent = (gEndTime - gStartTime);   
+  long int timer_spent = (gEndTime - gStartTime);
   if(timer_spent > ulTimeoutmSecs)
 	bTimoutExpired = 1;
 
@@ -778,9 +781,7 @@ FTC_STATUS FTC_GetNumberBytesFromDeviceInputBuffer(FTC_HANDLE ftHandle, LPDWORD 
   FTC_STATUS Status = FTC_SUCCESS;
   SYSTEMTIME StartTime;
 
-  //GetLocalTime(&StartTime);
   gettimeofday(&StartTime,NULL);
-  
 
   do
   {
@@ -789,13 +790,13 @@ FTC_STATUS FTC_GetNumberBytesFromDeviceInputBuffer(FTC_HANDLE ftHandle, LPDWORD 
 
     if (Status == FTC_SUCCESS)
     {
-      sleep(0);  // give up timeslice
+      usleep(0);  // give up timeslice
       if (FTC_Timeout(StartTime, MAX_COMMAND_TIMEOUT_PERIOD))
         Status = FTC_FAILED_TO_COMPLETE_COMMAND;
     }
   }
   while ((*lpdwNumBytesDeviceInputBuffer == 0) && (Status == FTC_SUCCESS));
- 
+
   return Status;
 }
 
@@ -809,7 +810,7 @@ void FTC_AddByteToOutputBuffer(DWORD dwOutputByte, BOOL bClearOutputBuffer)
   if (bClearOutputBuffer == TRUE)
     dwNumBytesToSend = 0;
 
-  OutputBuffer[dwNumBytesToSend] = (dwOutputByte & 0xFF);
+  OutputBuffer[dwNumBytesToSend] = (dwOutputByte & '\xFF');
 
   dwNumBytesToSend = dwNumBytesToSend + 1;
 }
@@ -817,6 +818,19 @@ void FTC_AddByteToOutputBuffer(DWORD dwOutputByte, BOOL bClearOutputBuffer)
 DWORD FTC_GetNumBytesInOutputBuffer(void)
 {
   return dwNumBytesToSend;
+}
+
+static void print_buffer(unsigned char *buf, int size)
+{
+	char str_buf[512 * 3] = {0};
+	char *pstr_buf = str_buf;
+	int i, n;
+
+	for (i = 0; i < size; i++) {
+		n = sprintf(pstr_buf, "%02x ", buf[i]);
+		pstr_buf += n;
+	}
+	printf("%s\n", str_buf);
 }
 
 FTC_STATUS FTC_SendBytesToDevice(FTC_HANDLE ftHandle)
@@ -844,13 +858,14 @@ FTC_STATUS FTC_SendBytesToDevice(FTC_HANDLE ftHandle)
 
       dwTotalNumBytesSent = dwTotalNumBytesSent + dwNumBytesSent;
     }
-    while ((dwTotalNumBytesSent < dwNumBytesToSend) && (Status == FTC_SUCCESS)); 
+    while ((dwTotalNumBytesSent < dwNumBytesToSend) && (Status == FTC_SUCCESS));
   }
   else
   {
     // This function sends data to a FT2232C dual type device. The dwNumBytesToSend variable specifies the number of
     // bytes in the output buffer to be sent to a FT2232C dual type device. The dwNumBytesSent variable contains
     // the actual number of bytes sent to a FT2232C dual type device.
+    //print_buffer(OutputBuffer,dwNumBytesToSend);
     Status = FT_Write((FT_HANDLE)ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);
   }
 
@@ -981,7 +996,7 @@ FTC_STATUS FTC_SendCommandsSequenceToDevice(FTC_HANDLE ftHandle)
 
       dwTotalNumBytesSent = dwTotalNumBytesSent + dwNumBytesSent;
     }
-    while ((dwTotalNumBytesSent < dwNumBytesToSend) && (Status == FTC_SUCCESS)); 
+    while ((dwTotalNumBytesSent < dwNumBytesToSend) && (Status == FTC_SUCCESS));
   }
   else
   {
@@ -992,7 +1007,7 @@ FTC_STATUS FTC_SendCommandsSequenceToDevice(FTC_HANDLE ftHandle)
   }
 
   dwNumBytesToSend = 0;
-  
+
   return Status;
 }
 
@@ -1023,6 +1038,6 @@ FTC_STATUS FTC_ReadCommandsSequenceBytesFromDevice(FTC_HANDLE ftHandle, PInputBy
   }
   else
     Status = FTC_ReadFixedNumBytesFromDevice(ftHandle, InputBuffer, dwNumBytesToRead, lpdwNumBytesRead);
-  
+
   return Status;
 }

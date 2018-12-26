@@ -23,13 +23,13 @@ Revision History:
     15/08/08    kra     Modified FTC_IsDeviceNameLocationIDValid and FTC_InsertDeviceHandle methods to add the type
                         of hi-speed device to OpenedHiSpeedDevices ie array of FTC_HI_SPEED_DEVICE_DATA structures.
                         Add new FTC_IsDeviceHiSpeedType method.
-	
+
 --*/
 #define WIO_DEFINED
 
-#ifndef _GNU_SOURCE 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
-#endif 
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -37,6 +37,19 @@ Revision History:
 #include <unistd.h>
 #include "FT2232h.h"
 #include "FTD2XX.h"
+
+const int BASE_CLOCK_FREQUENCY_60_MHZ = 60000000;
+
+const BYTE TURN_OFF_DIVIDE_BY_FIVE_CLOCKING_CMD = '\x8A';
+const BYTE TURN_ON_DIVIDE_BY_FIVE_CLOCKING_CMD = '\x8B';
+
+// Turning adaptive clocking on is for JTAG only
+const BYTE TURN_ON_ADAPTIVE_CLOCKING_CMD = '\x96';
+const BYTE TURN_OFF_ADAPTIVE_CLOCKING_CMD = '\x97';
+
+// Turning 3 phase data clocking on is for I2C only
+const BYTE TURN_ON_THREE_PHASE_DATA_CLOCKING_CMD = '\x8C';
+const BYTE TURN_OFF_THREE_PHASE_DATA_CLOCKING_CMD = '\x8D';
 
 INT iDeviceCntr = 0;
 UINT uiNumOpenedHiSpeedDevices = 0;
@@ -152,7 +165,7 @@ FTC_STATUS FTC_IsDeviceNameLocationIDValid(LPSTR lpDeviceName, DWORD dwLocationI
         if (dwLocID == 0) {
           Status = FTC_DEVICE_IN_USE;
         }
-        else 
+        else
         {
           if (bLocationIDFound == 0)
             Status = FTC_INVALID_LOCATION_ID;
@@ -187,7 +200,7 @@ FTC_STATUS FTC_IsDeviceHiSpeedType1(FT_DEVICE_LIST_INFO_NODE devInfo, LPBOOL lpb
     {
       // Ensure the last two characters of the device name is ' A' ie channel A or ' B' ie channel B
       if (strlen(pszStringSearch) == 2)
-        *lpbHiSpeedDeviceType = 1; 
+        *lpbHiSpeedDeviceType = 1;
     }
   }
   return Status;
@@ -458,7 +471,7 @@ FTC_STATUS FTC_GetHiSpeedDeviceType(FTC_HANDLE ftHandle, LPBOOL lpbHiSpeedFT2232
         Status = FTC_INVALID_HANDLE;
     }
   }
- 
+
   return Status;
 }
 

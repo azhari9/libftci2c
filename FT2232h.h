@@ -29,13 +29,11 @@ Revision History:
 #ifndef FT2232h_H
 #define FT2232h_H
 
-//#include <windows.h>
 #include "WinTypes.h"
 
 #include "FT2232c.h"
 
 #include "FTD2XX.h"
-
 #include "stdafx.h"
 
 typedef DWORD FTC_HANDLE;
@@ -80,24 +78,8 @@ typedef DWORD HiSpeedDeviceIndexes[MAX_NUM_DEVICES];
 
 typedef char SerialNumber[MAX_NUM_SERIAL_NUMBER_CHARS];
 
-#define BASE_CLOCK_FREQUENCY_60_MHZ  60000000
-#define TURN_OFF_DIVIDE_BY_FIVE_CLOCKING_CMD 0x8A
-#define TURN_ON_DIVIDE_BY_FIVE_CLOCKING_CMD 0x8B
-
-// Turning adaptive clocking on is for JTAG only
-#define TURN_ON_ADAPTIVE_CLOCKING_CMD 0x96
-#define TURN_OFF_ADAPTIVE_CLOCKING_CMD 0x97
-
-// Turning 3 phase data clocking on is for I2C only
-#define TURN_ON_THREE_PHASE_DATA_CLOCKING_CMD 0x8C
-#define TURN_OFF_THREE_PHASE_DATA_CLOCKING_CMD 0x8D
-
-
 #define MIN_LATENCY_TIMER_VALUE 2     // equivalent to 30MHz for FT2232H and FT4232H hi-speed devices, equivalent to 6MHz for FT2232C device
 #define MAX_LATENCY_TIMER_VALUE 255   // equivalent to 457Hz for FT2232H and FT4232H hi-speed devices, equivalent to 91Hz for FT2232C device
-
-//  UINT uiNumOpenedHiSpeedDevices = 0;
-//  FTC_HI_SPEED_DEVICE_DATA OpenedHiSpeedDevices[MAX_NUM_DEVICES]={0};
 
   BOOL FTC_DeviceInUse(LPSTR lpDeviceName, DWORD dwLocationID);
   BOOL FTC_DeviceOpened(LPSTR lpDeviceName, DWORD dwLocationID, FTC_HANDLE *pftHandle);

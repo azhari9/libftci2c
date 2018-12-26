@@ -34,8 +34,8 @@ Revision History:
 #ifndef FT2232hMpsseI2c_H
 #define FT2232hMpsseI2c_H
 
-//#include <windows.h>
 #include "WinTypes.h"
+
 #include "FTCI2C.h"
 
 #include "FT2232h.h"
@@ -43,7 +43,6 @@ Revision History:
 #define DEVICE_CHANNEL_A " A"
 #define DEVICE_CHANNEL_B " B"
 
-//#define DLL_VERSION_NUM "2.0"
 
 #define USB_INPUT_BUFFER_SIZE 65536  // 64K
 #define USB_OUTPUT_BUFFER_SIZE 65536  // 64K
@@ -83,47 +82,7 @@ typedef I2CWriteByteBuffer *PI2CWriteByteBuffer;
 typedef BYTE I2CReadByteBuffer[I2C_READ_BUFFER_SIZE];
 typedef I2CReadByteBuffer *PI2CReadByteBuffer;
 
-enum AckTypes {
-	NoAck,
-	ControlAck, 
-	DataAck
-};
-
-#define NUM_ACKNOWLEDGE_BITS 1
-//const   BYTE ACKNOWLEDGE_BIT = '\x01';
-//#define ACKNOWLEDGE_BIT 0x01 //'\x01'
-#define ACKNOWLEDGE_VALUE 0
-
-#define MAX_ERROR_MSG_SIZE 100
-
-#define ENGLISH "EN"
-
-#define CLK_DATA_BYTES_OUT_ON_POS_CLK_MSB_FIRST_CMD 0x10// '\x10'
-#define CLK_DATA_BYTES_OUT_ON_NEG_CLK_MSB_FIRST_CMD  0x11//'\x11'
-#define CLK_DATA_BITS_OUT_ON_NEG_CLK_MSB_FIRST_CMD  0x13//'\x13'
-
-#define CLK_DATA_BYTES_OUT_ON_NEG_CLK_LSB_FIRST_CMD  0x19//'\x19'
-#define CLK_DATA_BITS_OUT_ON_NEG_CLK_LSB_FIRST_CMD  0x1B//'\x1B'
-
-#define CLK_DATA_BYTES_IN_ON_NEG_CLK_MSB_FIRST_CMD  0x25//'\x25'
-#define CLK_DATA_BITS_IN_ON_NEG_CLK_MSB_FIRST_CMD  0x27//'\x27'
-
-#define CLK_DATA_BYTES_IN_ON_POS_CLK_LSB_FIRST_CMD 0x28// '\x28'
-#define CLK_DATA_BITS_IN_ON_POS_CLK_LSB_FIRST_CMD  0x2A//'\x2A'
-
-#define CLK_DATA_BYTES_OUT_ON_NEG_CLK_IN_ON_POS_CLK_LSB_FIRST_CMD 0x39// '\x39'
-#define CLK_DATA_BITS_OUT_ON_NEG_CLK_IN_ON_POS_CLK_LSB_FIRST_CMD 0x3B// '\x3B'
-
-#define CLK_DATA_TMS_NO_READ_CMD  0x4B//'\x4B'
-#define CLK_DATA_TMS_READ_CMD  0x6B//'\x6B'
-
-#define SET_LOW_BYTE_DATA_BITS_CMD 0x80// '\x80'
-#define GET_LOW_BYTE_DATA_BITS_CMD 0x81// '\x81'
-#define SET_HIGH_BYTE_DATA_BITS_CMD 0x82// '\x82'
-#define GET_HIGH_BYTE_DATA_BITS_CMD 0x83// '\x83'
-
-#define SET_CLOCK_FREQUENCY_CMD  0x86//'\x86'
-#define SEND_ANSWER_BACK_IMMEDIATELY_CMD 0x87// '\x87'
+enum AckTypes {NoAck, ControlAck, DataAck};
 
 // These two literals define the number of times commands are repeated to ensure that the minimum periods
 // for the start hold and setup times ie 600ns and stop setup time ie 600ns is achieved to ensure correct
@@ -143,15 +102,7 @@ typedef struct Ft_I2C_Device_Data{
 
 
 //----------------------------------------------------------------------------
-  // This object is used to restricted access to one thread, when a process/application has multiple 
-  // threads running. The critical section object will ensure that only one public method in the DLL 
-  // will be executed at a time.
-//  CRITICAL_SECTION threadAccess;
-
-  //DWORD dwNumOpenedDevices = 0;
-//  FTC_I2C_DEVICE_DATA OpenedDevicesDataRecords[MAX_NUM_DEVICES] = {0};
   DWORD dwSavedLowPinsDirection;
-  //DWORD dwSavedLowPinsValue = 0;
   DWORD dwSavedHighPinsDirection;
   DWORD dwSavedHighPinsValue;
   InputByteBuffer InputBuffer;

@@ -40,16 +40,15 @@ Revision History:
 #include <sys/time.h>
 #include <pthread.h>
 
-void begin (void) __attribute__((constructor));
-void end (void) __attribute__((destructor));
-pthread_mutex_t m;
-
-DWORD dwDeviceIndex = 0;
-DWORD dwNumOpenedDevices = 0;
-FTC_I2C_DEVICE_DATA OpenedDevicesDataRecords[MAX_NUM_DEVICES] = {0};
-DWORD dwSavedLowPinsValue = 0;
+#define NUM_ACKNOWLEDGE_BITS 1
 const   BYTE ACKNOWLEDGE_BIT = '\x01';
-const char EN_Common_Errors[FTC_INSUFFICIENT_RESOURCES + 1][MAX_ERROR_MSG_SIZE] = {
+#define ACKNOWLEDGE_VALUE 0
+
+#define MAX_ERROR_MSG_SIZE 100
+
+const CHAR ENGLISH[3] = "EN";
+
+const CHAR EN_Common_Errors[FTC_INSUFFICIENT_RESOURCES + 1][MAX_ERROR_MSG_SIZE] = {
     "",
     "Invalid device handle.",
     "Device not found.",
@@ -57,7 +56,7 @@ const char EN_Common_Errors[FTC_INSUFFICIENT_RESOURCES + 1][MAX_ERROR_MSG_SIZE] 
     "General device IO error.",
     "Insufficient resources available to execute function."};
 
-const char EN_New_Errors[(FTC_INVALID_STATUS_CODE - FTC_FAILED_TO_COMPLETE_COMMAND) + 1][MAX_ERROR_MSG_SIZE] = {
+const CHAR EN_New_Errors[(FTC_INVALID_STATUS_CODE - FTC_FAILED_TO_COMPLETE_COMMAND) + 1][MAX_ERROR_MSG_SIZE] = {
     "Failed to complete command.",
     "Failed to synchronize the device MPSSE interface.",
     "Invalid device name index.",
@@ -99,8 +98,40 @@ const char EN_New_Errors[(FTC_INVALID_STATUS_CODE - FTC_FAILED_TO_COMPLETE_COMMA
     "Unsupported language code.",
     "Unknown status code = "};
 
+const BYTE CLK_DATA_BYTES_OUT_ON_POS_CLK_MSB_FIRST_CMD = '\x10';
+const BYTE CLK_DATA_BYTES_OUT_ON_NEG_CLK_MSB_FIRST_CMD = '\x11';
+const BYTE CLK_DATA_BITS_OUT_ON_NEG_CLK_MSB_FIRST_CMD = '\x13';
+const BYTE CLK_DATA_BYTES_OUT_ON_NEG_CLK_LSB_FIRST_CMD = '\x19';
+const BYTE CLK_DATA_BITS_OUT_ON_NEG_CLK_LSB_FIRST_CMD = '\x1B';
+const BYTE CLK_DATA_BYTES_IN_ON_NEG_CLK_MSB_FIRST_CMD = '\x25';
+const BYTE CLK_DATA_BITS_IN_ON_NEG_CLK_MSB_FIRST_CMD = '\x27';
+const BYTE CLK_DATA_BYTES_IN_ON_POS_CLK_LSB_FIRST_CMD = '\x28';
+const BYTE CLK_DATA_BITS_IN_ON_POS_CLK_LSB_FIRST_CMD = '\x2A';
+const BYTE CLK_DATA_BYTES_OUT_ON_NEG_CLK_IN_ON_POS_CLK_LSB_FIRST_CMD = '\x39';
+const BYTE CLK_DATA_BITS_OUT_ON_NEG_CLK_IN_ON_POS_CLK_LSB_FIRST_CMD = '\x3B';
+
+const BYTE CLK_DATA_TMS_NO_READ_CMD = '\x4B';
+const BYTE CLK_DATA_TMS_READ_CMD = '\x6B';
+
+const BYTE SET_LOW_BYTE_DATA_BITS_CMD = '\x80';
+const BYTE GET_LOW_BYTE_DATA_BITS_CMD = '\x81';
+const BYTE SET_HIGH_BYTE_DATA_BITS_CMD = '\x82';
+const BYTE GET_HIGH_BYTE_DATA_BITS_CMD = '\x83';
+
+const BYTE SET_CLOCK_FREQUENCY_CMD = '\x86';
+const BYTE SEND_ANSWER_BACK_IMMEDIATELY_CMD = '\x87';
+
+void begin (void) __attribute__((constructor));
+void end (void) __attribute__((destructor));
+pthread_mutex_t m;
+
+DWORD dwDeviceIndex = 0;
+DWORD dwNumOpenedDevices = 0;
+FTC_I2C_DEVICE_DATA OpenedDevicesDataRecords[MAX_NUM_DEVICES] = {0};
+DWORD dwSavedLowPinsValue = 0;
+
 FTC_STATUS CheckWriteDataToExternalDeviceParameters(PWriteControlByteBuffer pWriteControlBuffer, DWORD dwNumControlBytesToWrite,
-                                                                     DWORD dwDataWriteTypes, PWriteDataByteBuffer pWriteDataBuffer, 
+                                                                     DWORD dwDataWriteTypes, PWriteDataByteBuffer pWriteDataBuffer,
                                                                      DWORD dwNumDataBytesToWrite, PFTC_PAGE_WRITE_DATA pPageWriteData)
 {
   FTC_STATUS Status = FTC_SUCCESS;
@@ -186,38 +217,38 @@ FTC_STATUS SetTCKTDITMSPinsCloseState(FTC_HANDLE ftHandle, PFTC_CLOSE_FINAL_STAT
 {
   FTC_STATUS Status = FTC_SUCCESS;
 
-  if ((pCloseFinalStatePinsData->bTCKPinState != FALSE) ||  
+  if ((pCloseFinalStatePinsData->bTCKPinState != FALSE) ||
       (pCloseFinalStatePinsData->bTDIPinState != FALSE) ||
       (pCloseFinalStatePinsData->bTMSPinState != FALSE)) {
     FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 1);
 
     if (pCloseFinalStatePinsData->bTCKPinState != FALSE) {
       if (pCloseFinalStatePinsData->bTCKPinActiveState != FALSE)
-        dwSavedLowPinsValue = (dwSavedLowPinsValue | 0x01); // Set TCK pin high
+        dwSavedLowPinsValue = (dwSavedLowPinsValue | '\x01'); // Set TCK pin high
       else
-        dwSavedLowPinsValue = (dwSavedLowPinsValue & 0xFE); // Set TCK pin low
+        dwSavedLowPinsValue = (dwSavedLowPinsValue & '\xFE'); // Set TCK pin low
 
-      dwSavedLowPinsDirection = (dwSavedLowPinsDirection | 0x01); // Ensure TCK pin is set to output
+      dwSavedLowPinsDirection = (dwSavedLowPinsDirection | '\x01'); // Ensure TCK pin is set to output
     }
 
     if (pCloseFinalStatePinsData->bTDIPinState != FALSE) {
       if (pCloseFinalStatePinsData->bTDIPinActiveState != FALSE)
-        dwSavedLowPinsValue = (dwSavedLowPinsValue | 0x02); // Set TDI pin high
+        dwSavedLowPinsValue = (dwSavedLowPinsValue | '\x02'); // Set TDI pin high
       else
-        dwSavedLowPinsValue = (dwSavedLowPinsValue & 0xFD); // Set TDI pin low
+        dwSavedLowPinsValue = (dwSavedLowPinsValue & '\xFD'); // Set TDI pin low
 
-      dwSavedLowPinsDirection = (dwSavedLowPinsDirection | 0x02); // Ensure TDI pin is set to output
+      dwSavedLowPinsDirection = (dwSavedLowPinsDirection | '\x02'); // Ensure TDI pin is set to output
     }
 
     if (pCloseFinalStatePinsData->bTMSPinState != FALSE) {
       if (pCloseFinalStatePinsData->bTMSPinActiveState != FALSE)
-        dwSavedLowPinsValue = (dwSavedLowPinsValue | 0x08); // Set TMS pin high
+        dwSavedLowPinsValue = (dwSavedLowPinsValue | '\x08'); // Set TMS pin high
       else
-        dwSavedLowPinsValue = (dwSavedLowPinsValue & 0xF7); // Set TMS pin low
+        dwSavedLowPinsValue = (dwSavedLowPinsValue & '\xF7'); // Set TMS pin low
 
-      dwSavedLowPinsDirection = (dwSavedLowPinsDirection | 0x08); // Ensure TMS pin is set to output
+      dwSavedLowPinsDirection = (dwSavedLowPinsDirection | '\x08'); // Ensure TMS pin is set to output
     }
-    
+
     FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
     FTC_AddByteToOutputBuffer(dwSavedLowPinsDirection, 0);
 
@@ -253,29 +284,35 @@ FTC_STATUS InitDevice(FTC_HANDLE ftHandle, DWORD dwClockDivisor)
 
       if (Status == FTC_SUCCESS)
         usleep(50000); // wait for all the USB stuff to complete
+
       if (Status == FTC_SUCCESS)
         Status = InitDataInOutClockFrequency(ftHandle, dwClockDivisor);
+
       if (Status == FTC_SUCCESS)
         usleep(20000);
+
       if (Status == FTC_SUCCESS)
         Status = FTC_SetDeviceLoopbackState(ftHandle, 0);
+
       if (Status == FTC_SUCCESS)
         Status = EmptyDeviceInputBuffer(ftHandle);
+
       if (Status == FTC_SUCCESS)
         usleep(30000);
   }
   else
     Status = FTC_INVALID_CLOCK_DIVISOR;
+
   return Status;
 }
 
 FTC_STATUS SetDataInOutClockFrequency(FTC_HANDLE ftHandle, DWORD dwClockDivisor)
 {
   FTC_STATUS Status = FTC_SUCCESS;
-  
+
   // set clk divisor
   FTC_AddByteToOutputBuffer(SET_CLOCK_FREQUENCY_CMD, 1);
-  FTC_AddByteToOutputBuffer((dwClockDivisor & 0xFF), 0);
+  FTC_AddByteToOutputBuffer((dwClockDivisor & '\xFF'), 0);
   FTC_AddByteToOutputBuffer((dwClockDivisor >> 8), 0);
 
   Status = FTC_SendBytesToDevice(ftHandle);
@@ -293,7 +330,7 @@ FTC_STATUS InitDataInOutClockFrequency(FTC_HANDLE ftHandle, DWORD dwClockDivisor
   FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 1);
 
   // SDA SCL WP high
-  dwSavedLowPinsValue = 0x13;
+  dwSavedLowPinsValue = '\x13';
   FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
   // inputs on GPIO12-14
@@ -301,11 +338,11 @@ FTC_STATUS InitDataInOutClockFrequency(FTC_HANDLE ftHandle, DWORD dwClockDivisor
 
   // outputs on GPIO21-24
   FTC_AddByteToOutputBuffer(SET_HIGH_BYTE_DATA_BITS_CMD, 0);
-  FTC_AddByteToOutputBuffer(0x0F, 0);
-  FTC_AddByteToOutputBuffer(0x0F, 0);
+  FTC_AddByteToOutputBuffer('\x0F', 0);
+  FTC_AddByteToOutputBuffer('\x0F', 0);
 
   Status = FTC_SendBytesToDevice(ftHandle);
-  
+
   if (Status == FTC_SUCCESS)
   {
     //sleep(0); // give up timeslice
@@ -338,10 +375,10 @@ FTC_STATUS SetGeneralPurposeHighInputOutputPins(FTC_HANDLE ftHandle, DWORD dwHig
   // output on the general purpose I/O high pins 1-4
   FTC_AddByteToOutputBuffer(SET_HIGH_BYTE_DATA_BITS_CMD, 1);
 
-  dwHighPinsValue = (dwHighPinsValue & 0x0F);
+  dwHighPinsValue = (dwHighPinsValue & '\x0F');
   FTC_AddByteToOutputBuffer(dwHighPinsValue, 0);
 
-  dwHighPinsDirection = (dwHighPinsDirection & 0x0F);
+  dwHighPinsDirection = (dwHighPinsDirection & '\x0F');
   FTC_AddByteToOutputBuffer(dwHighPinsDirection, 0);
 
   Status = FTC_SendBytesToDevice(ftHandle);
@@ -359,39 +396,39 @@ FTC_STATUS SetHiSpeedDeviceGeneralPurposeLowInputOutputPins(FTC_HANDLE ftHandle,
   DWORD dwLowPinsDirection = 0;
   DWORD dwLowPinsValue = 0;
 
-  // Only the 3 general purpose lower input/output pins (GPIOL2 – GPIOL4) are available, the GPIOL1 pin
+  // Only the 3 general purpose lower input/output pins (GPIOL2 ï¿½ GPIOL4) are available, the GPIOL1 pin
   // cannot be used, it is reserved for I2C write protect and therefore is configured as an output
-  dwLowPinsDirection = (dwLowPinsDirection | 0x01); // Set Write Protect pin(GPIOL1) high ie output
+  dwLowPinsDirection = (dwLowPinsDirection | '\x01'); // Set Write Protect pin(GPIOL1) high ie output
   if (pLowInputOutputPinsData->bPin2InputOutputState != FALSE)
-    dwLowPinsDirection = (dwLowPinsDirection | 0x02);
+    dwLowPinsDirection = (dwLowPinsDirection | '\x02');
   if (pLowInputOutputPinsData->bPin3InputOutputState != FALSE)
-    dwLowPinsDirection = (dwLowPinsDirection | 0x04);
+    dwLowPinsDirection = (dwLowPinsDirection | '\x04');
   if (pLowInputOutputPinsData->bPin4InputOutputState != FALSE)
-    dwLowPinsDirection = (dwLowPinsDirection | 0x08);
+    dwLowPinsDirection = (dwLowPinsDirection | '\x08');
 
-  dwLowPinsValue = (dwLowPinsValue | 0x01); // Set Write Protect pin(GPIOL1) high ie enable write protect (default)
+  dwLowPinsValue = (dwLowPinsValue | '\x01'); // Set Write Protect pin(GPIOL1) high ie enable write protect (default)
   if (pLowInputOutputPinsData->bPin2LowHighState != FALSE)
-    dwLowPinsValue = (dwLowPinsValue | 0x02);
+    dwLowPinsValue = (dwLowPinsValue | '\x02');
   if (pLowInputOutputPinsData->bPin3LowHighState != FALSE)
-    dwLowPinsValue = (dwLowPinsValue | 0x04);
+    dwLowPinsValue = (dwLowPinsValue | '\x04');
   if (pLowInputOutputPinsData->bPin4LowHighState != FALSE)
-    dwLowPinsValue = (dwLowPinsValue | 0x08);
+    dwLowPinsValue = (dwLowPinsValue | '\x08');
 
   // output on the general purpose I/O low pins 1-4
   FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, TRUE);
 
   // shift left by 4 bits ie move general purpose I/O low pins 1-4 from bits 0-3 to bits 4-7
-  dwLowPinsValue = ((dwLowPinsValue & 0x0F) << 4);
+  dwLowPinsValue = ((dwLowPinsValue & '\x0F') << 4);
 
-  dwSavedLowPinsValue = (dwSavedLowPinsValue & 0x0F);
+  dwSavedLowPinsValue = (dwSavedLowPinsValue & '\x0F');
   dwSavedLowPinsValue = (dwSavedLowPinsValue | dwLowPinsValue);
   FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, FALSE);
 
   // shift left by 4 bits ie move general purpose I/O low pins 1-4 from bits 0-3 to bits 4-7
-  dwLowPinsDirection = ((dwLowPinsDirection & 0x0F) << 4);
+  dwLowPinsDirection = ((dwLowPinsDirection & '\x0F') << 4);
 
-  dwSavedLowPinsDirection = (dwSavedLowPinsDirection & 0x0F);
-  dwSavedLowPinsDirection = (dwSavedLowPinsDirection | dwLowPinsDirection); 
+  dwSavedLowPinsDirection = (dwSavedLowPinsDirection & '\x0F');
+  dwSavedLowPinsDirection = (dwSavedLowPinsDirection | dwLowPinsDirection);
   FTC_AddByteToOutputBuffer(dwSavedLowPinsDirection, FALSE);
 
   return FTC_SendBytesToDevice(ftHandle);
@@ -409,47 +446,47 @@ FTC_STATUS SetHiSpeedDeviceGeneralPurposeHighInputOutputPins(FTC_HANDLE ftHandle
     // If the device is a FT2232H hi-speed device
     if (bHiSpeedFT2232HTDeviceype == TRUE)
     {
-	  if (pHighInputOutputPinsData->bPin1InputOutputState != FALSE)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x01);
+      if (pHighInputOutputPinsData->bPin1InputOutputState != FALSE)
+        dwHighPinsDirection = (dwHighPinsDirection | '\x01');
       if (pHighInputOutputPinsData->bPin2InputOutputState != FALSE)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x02);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x02');
       if (pHighInputOutputPinsData->bPin3InputOutputState != FALSE)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x04);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x04');
       if (pHighInputOutputPinsData->bPin4InputOutputState != FALSE)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x08);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x08');
       if (pHighInputOutputPinsData->bPin5InputOutputState != FALSE)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x10);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x10');
       if (pHighInputOutputPinsData->bPin6InputOutputState != FALSE)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x20);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x20');
       if (pHighInputOutputPinsData->bPin7InputOutputState != FALSE)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x40);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x40');
       if (pHighInputOutputPinsData->bPin8InputOutputState != FALSE)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x80);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x80');
 
       if (pHighInputOutputPinsData->bPin1LowHighState != FALSE)
-        dwHighPinsValue = (dwHighPinsValue | 0x01);
+        dwHighPinsValue = (dwHighPinsValue | '\x01');
       if (pHighInputOutputPinsData->bPin2LowHighState != FALSE)
-        dwHighPinsValue = (dwHighPinsValue | 0x02);
+        dwHighPinsValue = (dwHighPinsValue | '\x02');
       if (pHighInputOutputPinsData->bPin3LowHighState != FALSE)
-        dwHighPinsValue = (dwHighPinsValue | 0x04);
+        dwHighPinsValue = (dwHighPinsValue | '\x04');
       if (pHighInputOutputPinsData->bPin4LowHighState != FALSE)
-        dwHighPinsValue = (dwHighPinsValue | 0x08);
+        dwHighPinsValue = (dwHighPinsValue | '\x08');
       if (pHighInputOutputPinsData->bPin5LowHighState != FALSE)
-        dwHighPinsValue = (dwHighPinsValue | 0x10);
+        dwHighPinsValue = (dwHighPinsValue | '\x10');
       if (pHighInputOutputPinsData->bPin6LowHighState != FALSE)
-        dwHighPinsValue = (dwHighPinsValue | 0x20);
+        dwHighPinsValue = (dwHighPinsValue | '\x20');
       if (pHighInputOutputPinsData->bPin7LowHighState != FALSE)
-        dwHighPinsValue = (dwHighPinsValue | 0x40 );
+        dwHighPinsValue = (dwHighPinsValue | '\x40');
       if (pHighInputOutputPinsData->bPin8LowHighState != FALSE)
-        dwHighPinsValue = (dwHighPinsValue | 0x80);
+        dwHighPinsValue = (dwHighPinsValue | '\x80');
 
       // output on the general purpose I/O high pins 1-8
       FTC_AddByteToOutputBuffer(SET_HIGH_BYTE_DATA_BITS_CMD, TRUE);
 
-      dwHighPinsValue = (dwHighPinsValue & 0xFF);
+      dwHighPinsValue = (dwHighPinsValue & '\xFF');
       FTC_AddByteToOutputBuffer(dwHighPinsValue, FALSE);
 
-      dwHighPinsDirection = (dwHighPinsDirection & 0XFF);
+      dwHighPinsDirection = (dwHighPinsDirection & '\xFF');
       FTC_AddByteToOutputBuffer(dwHighPinsDirection, FALSE);
 
       Status = FTC_SendBytesToDevice(ftHandle);
@@ -525,7 +562,7 @@ FTC_STATUS GetGeneralPurposeHighInputOutputPins(FTC_HANDLE ftHandle, PFTC_LOW_HI
 
 void GetHiSpeedDeviceGeneralPurposeLowInputOutputPinsInputStates(DWORD dwInputStatesReturnedValue, PFTC_LOW_HIGH_PINS pLowPinsInputData)
 {
-  // Only the 3 general purpose lower input/output pins (GPIOL2 – GPIOL4) are available, the GPIOL1 pin
+  // Only the 3 general purpose lower input/output pins (GPIOL2 ï¿½ GPIOL4) are available, the GPIOL1 pin
   // cannot be used, it is reserved for I2C write protect and therefore is configured as an output
 
   if ((dwInputStatesReturnedValue & PIN2_HIGH_VALUE) == PIN2_HIGH_VALUE)
@@ -665,16 +702,16 @@ void  SetI2CStartCondition(FTC_HANDLE ftHandle, BOOL bEnableDisableWriteProtect)
   BOOL bHiSpeedTypeDevice = FALSE;
 
   if (bEnableDisableWriteProtect == 0)
-    dwSavedLowPinsValue = (dwSavedLowPinsValue & 0xEF); // Set Write Protect pin low ie disable write protect
+    dwSavedLowPinsValue = (dwSavedLowPinsValue & '\xEF'); // Set Write Protect pin low ie disable write protect
   else
-    dwSavedLowPinsValue = (dwSavedLowPinsValue | 0x10); // Set Write Protect pin high ie enable write protect
+    dwSavedLowPinsValue = (dwSavedLowPinsValue | '\x10'); // Set Write Protect pin high ie enable write protect
 
   FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
-  dwSavedLowPinsValue = (dwSavedLowPinsValue | 0x03); //SCL SDA high
+  dwSavedLowPinsValue = (dwSavedLowPinsValue | '\x03'); //SCL SDA high
   FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
-  dwSavedLowPinsDirection = (dwSavedLowPinsDirection & 0xE0);
-  dwSavedLowPinsDirection = (dwSavedLowPinsDirection | 0x13); // set SCL,SDA,WP as out
+  dwSavedLowPinsDirection = (dwSavedLowPinsDirection & '\xE0');
+  dwSavedLowPinsDirection = (dwSavedLowPinsDirection | '\x13'); // set SCL,SDA,WP as out
 
   FTC_AddByteToOutputBuffer(dwSavedLowPinsDirection, 0); // set SCL,SDA,WP as out
 
@@ -689,7 +726,7 @@ void  SetI2CStartCondition(FTC_HANDLE ftHandle, BOOL bEnableDisableWriteProtect)
   }
 
   FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
-  dwSavedLowPinsValue = (dwSavedLowPinsValue & 0xFD); //SCL high SDA low
+  dwSavedLowPinsValue = (dwSavedLowPinsValue & '\xFD'); //SCL high SDA low
   FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
   FTC_AddByteToOutputBuffer(dwSavedLowPinsDirection, 0); // set SCL,SDA,WP as out
@@ -710,7 +747,7 @@ void  SetI2CStartCondition(FTC_HANDLE ftHandle, BOOL bEnableDisableWriteProtect)
     for (dwLoopCntr = 0; dwLoopCntr < 3; dwLoopCntr++)
     {
       FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
-      dwSavedLowPinsValue = (dwSavedLowPinsValue & 0xFD); //SCL high SDA low
+      dwSavedLowPinsValue = (dwSavedLowPinsValue & '\xFD'); //SCL high SDA low
       FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
       FTC_AddByteToOutputBuffer(dwSavedLowPinsDirection, 0); // set SCL,SDA,WP as out
@@ -718,7 +755,7 @@ void  SetI2CStartCondition(FTC_HANDLE ftHandle, BOOL bEnableDisableWriteProtect)
   }
 
   FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
-  dwSavedLowPinsValue = (dwSavedLowPinsValue & 0xFC); //SCL low SDA low
+  dwSavedLowPinsValue = (dwSavedLowPinsValue & '\xFC'); //SCL low SDA low
   FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
   FTC_AddByteToOutputBuffer(dwSavedLowPinsDirection, 0); // set SCL,SDA,WP as out
@@ -732,12 +769,12 @@ FTC_STATUS SetI2CStopCondition(FTC_HANDLE ftHandle)
   FTC_ClearOutputBuffer();
 
   FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
-  dwSavedLowPinsValue = (dwSavedLowPinsValue | 0x01); //SCL high SDA low
-  dwSavedLowPinsValue = (dwSavedLowPinsValue & 0xFD); //SCL high SDA low
+  dwSavedLowPinsValue = (dwSavedLowPinsValue | '\x01'); //SCL high SDA low
+  dwSavedLowPinsValue = (dwSavedLowPinsValue & '\xFD'); //SCL high SDA low
   FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
-  dwSavedLowPinsDirection = (dwSavedLowPinsDirection & 0xE0);
-  dwSavedLowPinsDirection = (dwSavedLowPinsDirection | 0x13); // set SCL,SDA,WP as out
+  dwSavedLowPinsDirection = (dwSavedLowPinsDirection & '\xE0');
+  dwSavedLowPinsDirection = (dwSavedLowPinsDirection | '\x13'); // set SCL,SDA,WP as out
   FTC_AddByteToOutputBuffer(dwSavedLowPinsDirection, 0); // set SCL,SDA,WP as out
 
   if (FTC_IsDeviceHiSpeedType3(ftHandle) == TRUE) {
@@ -763,7 +800,7 @@ FTC_STATUS SetI2CStopCondition(FTC_HANDLE ftHandle)
   }
 
   FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
-  dwSavedLowPinsValue = (dwSavedLowPinsValue | 0x02); //SCL high SDA high
+  dwSavedLowPinsValue = (dwSavedLowPinsValue | '\x02'); //SCL high SDA high
   FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
   FTC_AddByteToOutputBuffer(dwSavedLowPinsDirection, 0); // set SCL,SDA,WP as out
@@ -782,8 +819,8 @@ FTC_STATUS SetI2CStopCondition(FTC_HANDLE ftHandle)
   FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
   FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
-  dwSavedLowPinsDirection = (dwSavedLowPinsDirection & 0xE0);
-  dwSavedLowPinsDirection = (dwSavedLowPinsDirection | 0x10); // set SCL,SDA as input,WP as out
+  dwSavedLowPinsDirection = (dwSavedLowPinsDirection & '\xE0');
+  dwSavedLowPinsDirection = (dwSavedLowPinsDirection | '\x10'); // set SCL,SDA as input,WP as out
 
   FTC_AddByteToOutputBuffer(dwSavedLowPinsDirection, 0); // set SCL,SDA as input,WP as out
 
@@ -821,8 +858,8 @@ void SetI2CWriteData(FTC_HANDLE ftHandle, DWORD dwNumBitsToWrite, PI2CWriteByteB
 	{
     // clk data bytes out on -ve clk MSB first
     FTC_AddByteToOutputBuffer(CLK_DATA_BYTES_OUT_ON_NEG_CLK_MSB_FIRST_CMD, 0);
-    FTC_AddByteToOutputBuffer((dwNumDataBytes & 0xFF), 0);
-    FTC_AddByteToOutputBuffer(((dwNumDataBytes / 256) & 0xFF), 0);
+    FTC_AddByteToOutputBuffer((dwNumDataBytes & '\xFF'), 0);
+    FTC_AddByteToOutputBuffer(((dwNumDataBytes / 256) & '\xFF'), 0);
 
     // now add the data bytes to go out
     do
@@ -843,7 +880,7 @@ void SetI2CWriteData(FTC_HANDLE ftHandle, DWORD dwNumBitsToWrite, PI2CWriteByteB
 
     // clk data bits out on -ve clk MSB first
     FTC_AddByteToOutputBuffer(CLK_DATA_BITS_OUT_ON_NEG_CLK_MSB_FIRST_CMD, 0);
-    FTC_AddByteToOutputBuffer((dwNumRemainingDataBits & 0xFF), 0);
+    FTC_AddByteToOutputBuffer((dwNumRemainingDataBits & '\xFF'), 0);
     FTC_AddByteToOutputBuffer((*pI2CWriteBuffer)[dwDataBufferIndex], 0);
   }
 }
@@ -875,8 +912,8 @@ void  SetI2CReadData(DWORD dwNumBitsToRead)
 
       // clk data bytes in -ve clk MSB
       FTC_AddByteToOutputBuffer(CLK_DATA_BYTES_IN_ON_NEG_CLK_MSB_FIRST_CMD, 0);
-      FTC_AddByteToOutputBuffer((dwNumDataBytes & 0xFF), 0);
-      FTC_AddByteToOutputBuffer(((dwNumDataBytes / 256) & 0xFF), 0);
+      FTC_AddByteToOutputBuffer((dwNumDataBytes & '\xFF'), 0);
+      FTC_AddByteToOutputBuffer(((dwNumDataBytes / 256) & '\xFF'), 0);
     }
 
     //dwNumRemainingDataBits = (dwModNumBitsToRead % 8);
@@ -887,7 +924,7 @@ void  SetI2CReadData(DWORD dwNumBitsToRead)
       // Do remaining bits
       // clk data bits in -ve clk MSB
       FTC_AddByteToOutputBuffer(CLK_DATA_BITS_IN_ON_NEG_CLK_MSB_FIRST_CMD, 0);
-      FTC_AddByteToOutputBuffer((dwNumRemainingDataBits & 0xFF), 0);
+      FTC_AddByteToOutputBuffer((dwNumRemainingDataBits & '\xFF'), 0);
     }
   }
 }
@@ -936,8 +973,7 @@ FTC_STATUS ReadDataBytesFromExternalDevice(FTC_HANDLE ftHandle, PI2CReadByteBuff
   }
   else
   {
-    //GetLocalTime(&StartTime);
-	gettimeofday(&StartTime,NULL);
+    gettimeofday(&StartTime,NULL);
 
     do
     {
@@ -988,7 +1024,7 @@ FTC_STATUS ReadDataAckFromExternalDevice(FTC_HANDLE ftHandle, PI2CReadByteBuffer
 
   //FTC_AddByteToOutputBuffer(CLK_DATA_BYTES_OUT_ON_NEG_CLK_MSB_FIRST_CMD, 0);  // set SCL,WP as out SDA as in
   FTC_AddByteToOutputBuffer(CLK_DATA_BYTES_OUT_ON_NEG_CLK_LSB_FIRST_CMD, 0);  // set SCL,WP as out SDA as in
-  
+
   SetI2CReadData(dwNumBitsToRead);
   FTC_AddByteToOutputBuffer(SEND_ANSWER_BACK_IMMEDIATELY_CMD, 0);  // Send immediate
 
@@ -1002,12 +1038,12 @@ FTC_STATUS ReadDataAckFromExternalDevice(FTC_HANDLE ftHandle, PI2CReadByteBuffer
 	}
     else
     {
-      //GetLocalTime(&StartTime);
-	  gettimeofday(&StartTime,NULL);
+      gettimeofday(&StartTime,NULL);
 
       do
       {
         Status = ReadDataBytesFromExternalDevice(ftHandle, pI2CReadBuffer, dwNumBitsToRead, &dwNumDataBytesRead, 0);
+
         if (Status == FTC_SUCCESS)
         {
           if (dwNumDataBytesRead > 0)
@@ -1033,12 +1069,13 @@ FTC_STATUS ReadDataAckFromExternalDevice(FTC_HANDLE ftHandle, PI2CReadByteBuffer
       }
       while ((bAckReceived == 0) && (Status == FTC_SUCCESS));
     }
+
     if (Status == FTC_SUCCESS)
     {
       FTC_ClearOutputBuffer();
 
-      //FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
-      FTC_AddByteToOutputBuffer(SET_HIGH_BYTE_DATA_BITS_CMD, 0);
+      FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
+//      FTC_AddByteToOutputBuffer(SET_HIGH_BYTE_DATA_BITS_CMD, 0);
       FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
       //FTC_AddByteToOutputBuffer(CLK_DATA_BITS_OUT_ON_NEG_CLK_MSB_FIRST_CMD, 0); // set SCL,SDA,WP as out
@@ -1061,8 +1098,8 @@ FTC_STATUS ReadDataByteFromExternalDevice(FTC_HANDLE ftHandle, PI2CReadByteBuffe
   FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
   FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
-  FTC_AddByteToOutputBuffer(CLK_DATA_BYTES_OUT_ON_NEG_CLK_MSB_FIRST_CMD, 0);  // set SCL,WP as out SDA as in
-
+ // FTC_AddByteToOutputBuffer(CLK_DATA_BYTES_OUT_ON_NEG_CLK_MSB_FIRST_CMD, 0);  // set SCL,WP as out SDA as in
+  FTC_AddByteToOutputBuffer(CLK_DATA_BYTES_OUT_ON_NEG_CLK_LSB_FIRST_CMD, 0);  // set SCL,WP as out SDA as in
   SetI2CReadData(8);
 
   FTC_AddByteToOutputBuffer(SEND_ANSWER_BACK_IMMEDIATELY_CMD, 0);  // Send immediate
@@ -1082,7 +1119,8 @@ FTC_STATUS ReadDataByteFromExternalDevice(FTC_HANDLE ftHandle, PI2CReadByteBuffe
       FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
       FTC_AddByteToOutputBuffer(dwSavedLowPinsValue, 0);
 
-      FTC_AddByteToOutputBuffer(CLK_DATA_BITS_OUT_ON_NEG_CLK_MSB_FIRST_CMD, 0); // set SCL,SDA,WP as out
+      //FTC_AddByteToOutputBuffer(CLK_DATA_BITS_OUT_ON_NEG_CLK_MSB_FIRST_CMD, 0); // set SCL,SDA,WP as out
+      FTC_AddByteToOutputBuffer(CLK_DATA_BITS_OUT_ON_NEG_CLK_LSB_FIRST_CMD, 0); // set SCL,SDA,WP as out
 
       Status = FTC_SendBytesToDevice(ftHandle); // send off the command
     }
@@ -1106,9 +1144,9 @@ FTC_STATUS SendDataCheckAcknowledge(FTC_HANDLE ftHandle, BYTE DataByte, int AckT
     Status = FTC_SendBytesToDevice(ftHandle); // send off the command
     //sleep(0); // give up timeslice
   }
-  else{
+  else
     Status = ReadDataAckFromExternalDevice(ftHandle, &I2CReadBuffer, NUM_ACKNOWLEDGE_BITS, AckType, dwAckTimeoutmSecs);
-  }
+
   return Status;
 }
 
@@ -1159,9 +1197,10 @@ FTC_STATUS WriteControlToExternalDevice(FTC_HANDLE ftHandle, PWriteControlByteBu
       do
       {
         Status = SendDataCheckAcknowledge(ftHandle, (*pWriteControlBuffer)[dwControlByteIndex], ControlAckType, dwControlAckTimeoutmSecs);
+
         dwControlByteIndex++;
       }
-      while ((dwControlByteIndex < dwNumControlBytesToWrite) && (Status == FTC_SUCCESS)); 
+      while ((dwControlByteIndex < dwNumControlBytesToWrite) && (Status == FTC_SUCCESS));
     }
   }
 
@@ -1170,7 +1209,7 @@ FTC_STATUS WriteControlToExternalDevice(FTC_HANDLE ftHandle, PWriteControlByteBu
 
 FTC_STATUS WriteDataToExternalDevice(FTC_HANDLE ftHandle, PWriteControlByteBuffer pWriteControlBuffer,
                                                       DWORD dwNumControlBytesToWrite, BOOL bControlAcknowledge,
-                                                      DWORD dwControlAckTimeoutmSecs, BOOL bStopCondition, 
+                                                      DWORD dwControlAckTimeoutmSecs, BOOL bStopCondition,
                                                       DWORD dwDataWriteTypes, PWriteDataByteBuffer pWriteDataBuffer,
                                                       DWORD dwNumDataBytesToWrite, BOOL bDataAcknowledge,
                                                       DWORD dwDataAckTimeoutmSecs, PFTC_PAGE_WRITE_DATA pPageWriteData)
@@ -1191,7 +1230,7 @@ FTC_STATUS WriteDataToExternalDevice(FTC_HANDLE ftHandle, PWriteControlByteBuffe
 
   if (Status == FTC_SUCCESS)
   {
-    switch(dwDataWriteTypes) 
+    switch(dwDataWriteTypes)
     {
       case NO_WRITE_TYPE:
         break;
@@ -1240,17 +1279,19 @@ FTC_STATUS ReadDataFromExternalDevice(FTC_HANDLE ftHandle, PWriteControlByteBuff
   if (dwDataReadTypes == BYTE_READ_TYPE)
   {
     // Set Read/Write bit to write ie 0
-    (*pWriteControlBuffer)[0] = ((*pWriteControlBuffer)[0] & 0xFE);
+    (*pWriteControlBuffer)[0] = ((*pWriteControlBuffer)[0] & '\xFE');
 
     Status = WriteControlToExternalDevice(ftHandle, pWriteControlBuffer, dwNumControlBytesToWrite,
                                           ControlAckType, dwControlAckTimeoutmSecs);
+
     if (Status == FTC_SUCCESS)
     {
       // Set Read/Write bit to read ie 1
-      (*pWriteControlBuffer)[0] = ((*pWriteControlBuffer)[0] | 0x01);
+      (*pWriteControlBuffer)[0] = ((*pWriteControlBuffer)[0] | '\x01');
 
       Status = WriteAddressExternalDevice(ftHandle, (*pWriteControlBuffer)[0], ControlAckType,
                                           dwControlAckTimeoutmSecs, 1);
+
       if (Status == FTC_SUCCESS)
       {
         Status = ReadDataAckFromExternalDevice(ftHandle, &I2CReadBuffer, 8, NoAck, 0);
@@ -1267,14 +1308,15 @@ FTC_STATUS ReadDataFromExternalDevice(FTC_HANDLE ftHandle, PWriteControlByteBuff
   else
   {
     // Set Read/Write bit to write ie 0
-    (*pWriteControlBuffer)[0] = ((*pWriteControlBuffer)[0] & 0xFE);
+    (*pWriteControlBuffer)[0] = ((*pWriteControlBuffer)[0] & '\xFE');
 
     Status = WriteControlToExternalDevice(ftHandle, pWriteControlBuffer, dwNumControlBytesToWrite,
                                           ControlAckType, dwControlAckTimeoutmSecs);
+
     if (Status == FTC_SUCCESS)
     {
       // Set Read/Write bit to read ie 1
-      (*pWriteControlBuffer)[0] = ((*pWriteControlBuffer)[0] | 0x01);
+      (*pWriteControlBuffer)[0] = ((*pWriteControlBuffer)[0] | '\x01');
 
       Status = WriteAddressExternalDevice(ftHandle, (*pWriteControlBuffer)[0], ControlAckType,
                                             dwControlAckTimeoutmSecs, 1);
@@ -1288,6 +1330,7 @@ FTC_STATUS ReadDataFromExternalDevice(FTC_HANDLE ftHandle, PWriteControlByteBuff
         do
         {
           Status = ReadDataByteFromExternalDevice(ftHandle, &I2CReadBuffer);
+
           if (Status == FTC_SUCCESS)
           {
             (*pReadDataBuffer)[dwReadDataBufferIndex] = I2CReadBuffer[0];
@@ -1331,7 +1374,7 @@ void CreateDeviceDataRecord(FTC_HANDLE ftHandle)
   }
 
   if (bDeviceDataRecordCreated == TRUE)
-    dwNumOpenedDevices = dwNumOpenedDevices + 1; 
+    dwNumOpenedDevices = dwNumOpenedDevices + 1;
 }
 
 INT GetDeviceDataRecordIndex(FTC_HANDLE ftHandle)
@@ -1416,14 +1459,12 @@ pthread_mutex_init(&m, &mAttr);
 // Mutex attribute can be destroy after initializing the mutex variable
 pthread_mutexattr_destroy(&mAttr);
 
-  
-  //InitializeCriticalSection(&threadAccess);
+
 }
 
 void end(void)
 {
 	pthread_mutex_destroy (&m);
-  //DeleteCriticalSection(&threadAccess);
 }
 
 FTC_STATUS I2C_GetNumDevices_ssel(LPDWORD lpdwNumDevices)
@@ -1507,7 +1548,7 @@ FTC_STATUS I2C_OpenDevice(FTC_HANDLE *pftHandle)
   pthread_mutex_lock (&m);
 
   Status = FTC_OpenDevice(pftHandle);
-  
+
   if (Status == FTC_SUCCESS)
     CreateDeviceDataRecord(*pftHandle);
 
@@ -1523,7 +1564,7 @@ FTC_STATUS I2C_OpenSpecifiedDevice(LPSTR lpDeviceName, DWORD dwLocationID, FTC_H
   pthread_mutex_lock (&m);
 
   Status = FTC_OpenSpecifiedDevice(lpDeviceName, dwLocationID, pftHandle);
-  
+
   if (Status == FTC_SUCCESS)
     CreateDeviceDataRecord(*pftHandle);
 
@@ -1628,7 +1669,7 @@ FTC_STATUS I2C_InitDevice_ssel(FTC_HANDLE ftHandle, DWORD dwClockDivisor)
       Status = InitDevice(ftHandle, dwClockDivisor);
     }
   }
-  pthread_mutex_unlock (&m);									  
+  pthread_mutex_unlock (&m);
   return Status;
 }
 
@@ -1636,11 +1677,11 @@ FTC_STATUS I2C_TurnOnDivideByFiveClockingHiSpeedDevice_ssel(FTC_HANDLE ftHandle)
 {
   FTC_STATUS Status = FTC_SUCCESS;
 
-  
+
 
   Status = FTC_TurnOnDivideByFiveClockingHiSpeedDevice(ftHandle);
 
-  
+
 
   return Status;
 }
@@ -1804,7 +1845,7 @@ FTC_STATUS WINAPI I2C_SetCommunicationsMode(FTC_HANDLE ftHandle, DWORD dwCommsMo
       iDeviceDataRecordIndex = GetDeviceDataRecordIndex(ftHandle);
 
       if (iDeviceDataRecordIndex != -1)
-        OpenedDevicesDataRecords[iDeviceDataRecordIndex].dwCommsMode = dwCommsMode; 
+        OpenedDevicesDataRecords[iDeviceDataRecordIndex].dwCommsMode = dwCommsMode;
     }
     else
       Status = FTC_INVALID_COMMS_MODE;
@@ -1830,21 +1871,21 @@ FTC_STATUS I2C_SetGeneralPurposeHighInputOutputPins(FTC_HANDLE ftHandle, PFTC_IN
     if (pHighInputOutputPinsData != NULL)
     {
       if (pHighInputOutputPinsData->bPin1InputOutputState != 0)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x01);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x01');
       if (pHighInputOutputPinsData->bPin2InputOutputState != 0)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x02);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x02');
       if (pHighInputOutputPinsData->bPin3InputOutputState != 0)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x04);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x04');
       if (pHighInputOutputPinsData->bPin4InputOutputState != 0)
-        dwHighPinsDirection = (dwHighPinsDirection | 0x08);
+        dwHighPinsDirection = (dwHighPinsDirection | '\x08');
       if (pHighInputOutputPinsData->bPin1LowHighState != 0)
-        dwHighPinsValue = (dwHighPinsValue | 0x01);
+        dwHighPinsValue = (dwHighPinsValue | '\x01');
       if (pHighInputOutputPinsData->bPin2LowHighState != 0)
-        dwHighPinsValue = (dwHighPinsValue | 0x02);
+        dwHighPinsValue = (dwHighPinsValue | '\x02');
       if (pHighInputOutputPinsData->bPin3LowHighState != 0)
-        dwHighPinsValue = (dwHighPinsValue | 0x04);
+        dwHighPinsValue = (dwHighPinsValue | '\x04');
       if (pHighInputOutputPinsData->bPin4LowHighState != 0)
-        dwHighPinsValue = (dwHighPinsValue | 0x08);
+        dwHighPinsValue = (dwHighPinsValue | '\x08');
 
       Status = SetGeneralPurposeHighInputOutputPins(ftHandle, dwHighPinsDirection, dwHighPinsValue);
     }
@@ -1874,7 +1915,7 @@ FTC_STATUS I2C_SetHiSpeedDeviceGeneralPurposeInputOutputPins(FTC_HANDLE ftHandle
     {
       if (bControlLowInputOutputPins != FALSE)
         Status = SetHiSpeedDeviceGeneralPurposeLowInputOutputPins(ftHandle, pLowInputOutputPinsData);
-      
+
       if (bControlHighInputOutputPins != FALSE)
         Status = SetHiSpeedDeviceGeneralPurposeHighInputOutputPins(ftHandle, pHighInputOutputPinsData);
     }
@@ -1941,7 +1982,7 @@ FTC_STATUS I2C_GetHiSpeedDeviceGeneralPurposeInputOutputPins(FTC_HANDLE ftHandle
 
 FTC_STATUS I2C_WriteDataToExternalDevice(FTC_HANDLE ftHandle, PWriteControlByteBuffer pWriteControlBuffer,
                                                           DWORD dwNumControlBytesToWrite, BOOL bControlAcknowledge,
-                                                          DWORD dwControlAckTimeoutmSecs, BOOL bStopCondition, 
+                                                          DWORD dwControlAckTimeoutmSecs, BOOL bStopCondition,
                                                           DWORD dwDataWriteTypes, PWriteDataByteBuffer pWriteDataBuffer,
                                                           DWORD dwNumDataBytesToWrite, BOOL bDataAcknowledge,
                                                           DWORD dwDataAckTimeoutmSecs, PFTC_PAGE_WRITE_DATA pPageWriteData)
@@ -1954,7 +1995,7 @@ FTC_STATUS I2C_WriteDataToExternalDevice(FTC_HANDLE ftHandle, PWriteControlByteB
 
   if (Status == FTC_SUCCESS)
   {
-    Status = CheckWriteDataToExternalDeviceParameters(pWriteControlBuffer, dwNumControlBytesToWrite, dwDataWriteTypes, 
+    Status = CheckWriteDataToExternalDeviceParameters(pWriteControlBuffer, dwNumControlBytesToWrite, dwDataWriteTypes,
                                                       pWriteDataBuffer, dwNumDataBytesToWrite, pPageWriteData);
 
     if (Status == FTC_SUCCESS)
@@ -1979,10 +2020,12 @@ FTC_STATUS I2C_ReadDataFromExternalDevice(FTC_HANDLE ftHandle, PWriteControlByte
   FTC_STATUS Status = FTC_SUCCESS;
 
   Status = FTC_IsDeviceHandleValid(ftHandle);
+
   if (Status == FTC_SUCCESS)
   {
-    Status = CheckReadDataFromExternalDeviceParameters(pWriteControlBuffer, dwNumControlBytesToWrite, dwDataReadTypes, 
+    Status = CheckReadDataFromExternalDeviceParameters(pWriteControlBuffer, dwNumControlBytesToWrite, dwDataReadTypes,
                                                        pReadDataBuffer, dwNumDataBytesToRead);
+
     if (Status == FTC_SUCCESS)
       Status = ReadDataFromExternalDevice(ftHandle, pWriteControlBuffer, dwNumControlBytesToWrite,
                                           bControlAcknowledge, dwControlAckTimeoutmSecs, dwDataReadTypes,
@@ -2008,6 +2051,7 @@ FTC_STATUS I2C_GetErrorCodeString_ssel(LPSTR lpLanguage, FTC_STATUS StatusCode,
   {
     for (iCharCntr = 0; (iCharCntr < MAX_ERROR_MSG_SIZE); iCharCntr++)
       szErrorMsg[iCharCntr] = '\0';
+
     if (((StatusCode >= FTC_SUCCESS) && (StatusCode <= FTC_INSUFFICIENT_RESOURCES)) ||
         ((StatusCode >= FTC_FAILED_TO_COMPLETE_COMMAND) && (StatusCode <= FTC_INVALID_STATUS_CODE)))
     {
@@ -2059,8 +2103,8 @@ void RepeatBlock(char byte, DWORD num)
 	for(i=0; i<num; i++)
 	{
 		FTC_AddByteToOutputBuffer((DWORD)0x80, 0);
-		FTC_AddByteToOutputBuffer((DWORD)byte, 0); 
-		FTC_AddByteToOutputBuffer((DWORD)0x03, 0); 
+		FTC_AddByteToOutputBuffer((DWORD)byte, 0);
+		FTC_AddByteToOutputBuffer((DWORD)0x03, 0);
 	}
 }
 
@@ -2078,7 +2122,7 @@ void ClockByte(unsigned char byte)
 			FTC_AddByteToOutputBuffer((DWORD)0xff, 0); //write address
 		else
 			FTC_AddByteToOutputBuffer((DWORD)0x00, 0);
-		
+
 		RepeatBlock((byte>>6)&0x02, 1);
 		byte <<= 1;
 	}
@@ -2094,7 +2138,7 @@ void WriteProtectEnable(FTC_HANDLE ftHandle, bool b)
 		FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
 		FTC_AddByteToOutputBuffer(dwSavedLowPinsValue & 0xEF , 0); //WP off
 
-		FTC_AddByteToOutputBuffer(0x13, 0); // set SCL,SDA as input,WP as out
+		FTC_AddByteToOutputBuffer('\x13', 0); // set SCL,SDA as input,WP as out
 
 	}else
 	{
@@ -2102,7 +2146,7 @@ void WriteProtectEnable(FTC_HANDLE ftHandle, bool b)
 		FTC_AddByteToOutputBuffer(SET_LOW_BYTE_DATA_BITS_CMD, 0);
 		FTC_AddByteToOutputBuffer(dwSavedLowPinsValue | 0x10, 0); //WP On
 
-		FTC_AddByteToOutputBuffer(0x10, 0); // set SCL,SDA as input,WP as out
+		FTC_AddByteToOutputBuffer('\x10', 0); // set SCL,SDA as input,WP as out
 	}
 
 	Status = FTC_SendBytesToDevice(ftHandle); // send off the command

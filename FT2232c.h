@@ -27,9 +27,10 @@ Revision History:
 #ifndef FT2232c_H
 #define FT2232c_H
 
-//#include <windows.h>
 #include "WinTypes.h"
+
 #include "FTD2XX.h"
+
 #include "stdafx.h"
 typedef DWORD FTC_HANDLE;
 typedef ULONG FTC_STATUS;
@@ -69,9 +70,7 @@ typedef DWORD FT2232CDeviceIndexes[MAX_NUM_DEVICES];
 
 typedef char SerialNumber[MAX_NUM_SERIAL_NUMBER_CHARS];
 
-//const BYTE DEVICE_LATENCY_TIMER_VALUE = 16; // 16 milliseconds
 #define DEVICE_LATENCY_TIMER_VALUE  16 // 16 milliseconds
-
 
 #define OUTPUT_BUFFER_SIZE 131071  // 128K bytes
 
@@ -93,26 +92,6 @@ typedef InputByteBuffer *PInputByteBuffer;
 #define MAX_NUM_BYTES_USB_READ 32768 // 32KB
 
 #define BASE_CLOCK_FREQUENCY_12_MHZ  12000000
-
-#define MPSSE_INTERFACE_MASK   0x00//'\x00'
-#define RESET_MPSSE_INTERFACE  0x00//'\x00'
-#define ENABLE_MPSSE_INTERFACE  0x02//'\x02'
-
-#define DEVICE_OPENED_FLAG  0x0001//'\x0001'
-
-#define AA_ECHO_CMD_1  0xAA//'\xAA'
-#define AB_ECHO_CMD_2  0xAB//'\xAB'
-
-#define TURN_ON_LOOPBACK_CMD  0x84//'\x84'
-#define TURN_OFF_LOOPBACK_CMD  0x85//'\x85'
-
-#define BAD_COMMAND_RESPONSE  0xFA//'\xFA'
-
-
-  //UINT uiNumOpenedDevices = 0;
-//  FTC_DEVICE_DATA OpenedDevices[MAX_NUM_DEVICES] = {0};
-  OutputByteBuffer OutputBuffer;
- 
 
   BOOLEAN    FTC_DeviceInUse_c(LPSTR lpDeviceName, DWORD dwLocationID);
   BOOLEAN    FTC_DeviceOpened_c(LPSTR lpDeviceName, DWORD dwLocationID, FTC_HANDLE *pftHandle);
@@ -161,5 +140,6 @@ typedef InputByteBuffer *PInputByteBuffer;
   FTC_STATUS FTC_SendCommandsSequenceToDevice(FTC_HANDLE ftHandle);
   FTC_STATUS FTC_ReadCommandsSequenceBytesFromDevice(FTC_HANDLE ftHandle, PInputByteBuffer InputBuffer,
                                                      DWORD dwNumBytesToRead, LPDWORD lpdwNumBytesRead);
+
 
 #endif  /* FT2232c_H */
